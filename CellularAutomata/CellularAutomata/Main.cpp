@@ -5,7 +5,7 @@
 #include <string>
 #include <algorithm>
 
-#define DEBUG
+//#define DEBUG
 
 /*
 TODO:
@@ -15,6 +15,8 @@ smooth drawing instead of spotty
 reevalute random batching
 make all simulation arrays into a single array of objects
 rearrange function definitions in simulation
+make fire work down
+remove iostrema
 */
 
 const Uint32 SCREEN_WIDTH = 1000;
@@ -61,6 +63,7 @@ int main(int argc, char **argv)
 
 	SDL_Event e;
 	SDL_Point cursor = {0, 0};
+	SDL_Point lastCursor = cursor;
 	Uint32 lastTick = 0;
 	Uint8 mouseButton = 0;
 	Uint16 drawRadius = 15;
@@ -113,7 +116,7 @@ int main(int argc, char **argv)
 		
 		if(mouseButton)
 		{
-			sim.setCellRadius(cursor, drawRadius, material);
+			sim.setCellLine(cursor, lastCursor, drawRadius, material);
 		}
 
 		sim.update();
@@ -134,6 +137,8 @@ int main(int argc, char **argv)
 		SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 
 		SDL_RenderPresent(ren);
+
+		lastCursor = cursor;
 
 		Uint32 renderTime = SDL_GetTicks() - lastTick;
 #ifdef DEBUG

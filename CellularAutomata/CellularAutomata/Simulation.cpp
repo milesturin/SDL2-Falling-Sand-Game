@@ -1,5 +1,6 @@
 #include "Simulation.hpp"
-//#include "iostream"//sdfgsioudfnghoisdfnhoisuhn
+#include "iostream"//sdfgsioudfnghoisdfnhoisuhn
+
 Simulation::Simulation(int _width, int _height, SDL_Texture *_tex)
 {
 	width = _width;
@@ -117,6 +118,13 @@ Simulation::Simulation(int _width, int _height, SDL_Texture *_tex)
 			{Direction::NORTH_WEST, Direction::NORTH, Direction::NORTH_EAST, Direction::EAST, Direction::SOUTH_EAST, Direction::SOUTH, Direction::SOUTH_WEST, Direction::WEST}
 		}
 	};
+	allSpecs[static_cast<int>(Material::WOOD)] = {
+		{9, 180, 122}, {21, 220, 77},
+		0, 0, 250, 0,
+		true, false, true, false, false,
+		0, {},
+		{}
+	};
 }
 
 Simulation::~Simulation()
@@ -199,18 +207,20 @@ void Simulation::update()
 						}
 						if(computeBuffer[index] == Material::WATER)
 						{
-							if(computeBuffer[newIndex] == Material::FIRE)
+							if(collisionSpecs->flaming || collisionSpecs->melting)
 							{
-								setCell(newIndex, Material::EMPTY);
 								setCell(index, Material::STEAM);
 								destroyed = true;
-								break;
-							}
-							if(computeBuffer[newIndex] == Material::LAVA)
-							{
-								setCell(newIndex, Material::GRAVEL);
-								setCell(index, Material::STEAM);
-								destroyed = true;
+
+								if(computeBuffer[newIndex] == Material::LAVA && preGenRandRange(0, 1) == 0) 
+								{ 
+									setCell(newIndex, Material::GRAVEL); 
+								}
+								else
+								{
+									setCell(newIndex, Material::EMPTY);
+								}
+
 								break;
 							}
 						}
@@ -255,7 +265,7 @@ void Simulation::update()
 	delete[] randBatch;
 }
 
-//Sets a cell to a material. Interpolates between colors to add visual variation. Used only when a cell is initially placed.
+//Sets a cell to a material. Interpolates between colors to add visual variation
 void Simulation::setCell(Uint32 _index, Material _mat)
 {
 	computeBuffer[_index] = _mat;
@@ -290,7 +300,7 @@ void Simulation::setCellRadius(SDL_Point _pos, Uint16 _rad, Material _mat)
 		{
 			Uint32 x = _pos.x + j;
 			Uint32 y = _pos.y - _rad + i;
-			if(y >= 0 && y < height && x >= 0 && x < width)
+			if(isInBounds(x, y))
 			{
 				Uint32 index = x + y * width;
 				if(computeBuffer[index] == Material::EMPTY)
@@ -302,26 +312,86 @@ void Simulation::setCellRadius(SDL_Point _pos, Uint16 _rad, Material _mat)
 	}
 }
 
-//Draws a thick line between two points. This is used so that when the cursor is moved quickly it makes a contiguous line
-void Simulation::setCellLine(SDL_Point _start, SDL_Point _end, Uint16 _rad, Material _mat)
+//Uses a modified version of the interger-only version of Bresenham's line algorithm 
+void Simulation::setCellFillLine(SDL_Point _start, SDL_Point _end, Uint16 _rad, bool _dir, bool _hor, Material _mat)
 {
-	/*setCellRadius(_start, _rad, _mat);
-	setCellRadius(_end, _rad, _mat);
-	float slope = (_end.y - _start.y) / (_end.x - _start.x);
-	if(abs(slope) < 1.0f)
+	bool di = true;
+	Sint32 d1, d2;
+	Uint32 i0, i1, j0;
+	if(_hor)
 	{
-		for(int i = 0; i < _end.x - _start.x; ++i)
-		{
-			for(int j = 0; j < _rad * 2; ++j)
-			{
-
-			}
-		}
+		d1 = _end.x - _start.x;
+		d2 = _end.y - _start.y;
+		i0 = _start.x;
+		i1 = _end.x;
+		j0 = _start.y;
 	}
 	else
 	{
+		d1 = _end.y - _start.y;
+		d2 = _end.x - _start.x;
+		i0 = _start.y;
+		i1 = _end.y;
+		j0 = _start.x;
+	}
+	if(d2 < 0)
+	{
+		di = false;
+		d2 = -d2;
+	}
+	Sint32 D = 2 * d2 - d1;
+	Uint32 j = j0;
+	for(Uint32 i = i0; i < i1; ++i)
+	{
+		for(Uint16 k = 0; k < _rad * 1.5; ++k)
+		{
+			Uint32 x = _hor ? i : j;
+			Uint32 y = _hor ? j : i;
+			(_hor ? y : x) += (_dir ? k : -k) * (_hor ? -1 : 1);
+			if(isInBounds(x, y))
+			{
+				Uint32 index = x + y * width;
+				if(computeBuffer[index] == Material::EMPTY)
+				{
+					setCell(index, _mat);
+				}
+			}
+		}
+		if(D > 0)
+		{
+			j += di ? 1 : -1;
+			D -= 2 * d1;
+		}
+		D += 2 * d2;
+	}
+}
 
-	}*/
+//Draws a thick line between two points. This is used so that when the cursor is moved quickly it makes a contiguous line
+void Simulation::setCellLine(SDL_Point _start, SDL_Point _end, Uint16 _rad, Material _mat)
+{
+	setCellRadius(_start, _rad, _mat);
+	if(!(_start.x == _end.x && _start.y == _end.y))
+	{
+		setCellRadius(_end, _rad, _mat);
+		Sint32 dx = _end.x - _start.x;
+		Sint32 dy = _end.y - _start.y;
+		bool horizontal = abs(dx) >= abs(dy);
+		bool direction = false;
+		if(horizontal && dx < 0 || !horizontal && dy < 0)
+		{
+			SDL_Point temp = _start;
+			_start = _end;
+			_end = temp;
+			direction = true;
+		}
+		float angle = -atan2(dx, dy);
+		Sint32 tangentPointX = round(cos(angle) * _rad);
+		Sint32 tangentPointY = round(sin(angle) * _rad);
+		float slope = dy / dx;
+		//bool direction = angle > M_PI / 4 && angle < M_PI * 3 / 4 || angle > M_PI * 5 / 4 && angle < M_PI * 7 / 4;
+		setCellFillLine({_start.x + tangentPointX, _start.y + tangentPointY}, {_end.x + tangentPointX, _end.y + tangentPointY}, _rad, direction, horizontal, _mat);
+		setCellFillLine({_start.x - tangentPointX, _start.y - tangentPointY}, {_end.x - tangentPointX, _end.y - tangentPointY}, _rad, !direction, horizontal, _mat);
+	}
 }
 
 //Sees if a cell relative to a given index is a valid spot to move
@@ -346,6 +416,11 @@ Uint32 Simulation::getRelative(Uint32 _index, Direction _dir) const
 		if(_index >= size || _index < 0) { return -1; }
 	}
 	return _index;
+}
+
+bool Simulation::isInBounds(Uint32 _x, Uint32 _y) const
+{
+	return _y >= 0 && _y < height && _x >= 0 && _x < width;
 }
 
 //Converts a hsv value to rgb. We smoothly interpolate colors using hsv, then convert to rgb so SDL can use them

@@ -26,6 +26,7 @@ public:
 		GAS,
 		STEAM,
 		GRAVEL,
+		WOOD,
 		PLASMA,
 		TOTAL_MATERIALS,
 		NO_MATERIAL = 255
@@ -71,6 +72,7 @@ public:
 	void update();
 	void setCell(Uint32 _index, Material _mat);
 	void setCellRadius(SDL_Point _pos, Uint16 _rad, Material _mat);
+	void setCellFillLine(SDL_Point _start, SDL_Point _end, Uint16 _rad, bool _dir, bool _hor, Material _mat);
 	void setCellLine(SDL_Point _start, SDL_Point _end, Uint16 _rad, Material _mat);
 
 private:
@@ -91,6 +93,7 @@ private:
 	MaterialSpecs allSpecs[static_cast<int>(Material::TOTAL_MATERIALS)];
 
 	Uint32 getRelative(Uint32 _index, Direction _dir) const;
+	bool isInBounds(Uint32 _x, Uint32 _y) const;
 	SDL_Color HsvToRgb(const HsvColor *_hsv) const;
 
 	void swapCell(Uint32 _current, Uint32 _next);
