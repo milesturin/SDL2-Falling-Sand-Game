@@ -1,5 +1,7 @@
 #include "SDL.h"
+#include "SDL_ttf.h"
 #include "Simulation.hpp"
+#include "Drawing.hpp"
 
 #include <iostream>
 #include <string>
@@ -11,23 +13,49 @@
 TODO:
 rename solution and repo
 build boost bcp, look into property config, fix boost config
-smooth drawing instead of spotty
-reevalute random batching
-make all simulation arrays into a single array of objects
-rearrange function definitions in simulation
 make fire work down
-remove iostrema
+remove iostrema from everywhere
+erase
+reset
+pause
+rename window
+remove debug
 */
 
-const Uint32 SCREEN_WIDTH = 1000;
-const Uint32 SCREEN_HEIGHT = 1000;
+const Uint32 SCREEN_WIDTH = 1500;
+const Uint32 SCREEN_HEIGHT = 800;
+const Uint32 SIMULATION_WIDTH = 1200;
+const Uint32 SIMULATION_HEIGHT = 800;
+const Uint32 INFO_UI_HEIGHT = 100;
 const Uint32 TICKS_PER_FRAME = 30;
 
-void SDL_Cleanup(std::string _error, SDL_Window *_win = nullptr, SDL_Renderer *_ren = nullptr, SDL_Texture *_tex = nullptr)
+const std::string FONT_PATH = "../../Assets/Fipps-Regular.ttf";
+const Uint8 STATIC_TEXTURES = 2;
+const Uint8 SIMULATION_TEXTURE = 0;
+const Uint8 SELECTION_TEXTURE = 1;
+
+void SDL_Cleanup(std::string _error, SDL_Window *_win = nullptr, SDL_Renderer *_ren = nullptr, 
+		SDL_Texture *_tex[STATIC_TEXTURES] = nullptr, TTF_Font *_font = nullptr)
 {
+	if(!_error.empty())
+	{
+		std::string error = "SDL error at: " + _error + "\nerror: " +SDL_GetError();
+		//std::cout << error << std::endl;
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "SDL ERROR", error.c_str(), _win);
+	}
+
 	if(_win) { SDL_DestroyWindow(_win); }
 	if(_ren) { SDL_DestroyRenderer(_ren); }
-	if(!_error.empty()) { std::cout << "SDL error: " << _error << std::endl; }
+	if(_tex)
+	{
+		for(int i = 0; i < STATIC_TEXTURES; ++i)
+		{
+			if(_tex[i]) { SDL_DestroyTexture(_tex[i]); }
+		}
+	}
+	if(_font) { TTF_CloseFont(_font); }
+	TTF_Quit();
+	SDL_Quit();
 }
 
 int main(int argc, char **argv)
@@ -52,14 +80,33 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	SDL_Texture *tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
-	if(!tex)
+	SDL_Rect simulationRect = {0, 0, SIMULATION_WIDTH, SIMULATION_HEIGHT};
+	SDL_Rect selectionRect = {SIMULATION_WIDTH, INFO_UI_HEIGHT, SCREEN_WIDTH - SIMULATION_WIDTH, SCREEN_HEIGHT - INFO_UI_HEIGHT};
+	SDL_Rect infoRect = {SIMULATION_WIDTH, 0, SCREEN_WIDTH - SIMULATION_WIDTH, INFO_UI_HEIGHT};
+
+	SDL_Texture *tex[STATIC_TEXTURES];
+	tex[SIMULATION_TEXTURE] = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, SIMULATION_WIDTH, SIMULATION_HEIGHT);
+	tex[SELECTION_TEXTURE] = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, selectionRect.w, selectionRect.h);
+	for(int i = 0; i < STATIC_TEXTURES; ++i)
 	{
-		SDL_Cleanup("texture creation", win, ren);
+		if(!tex[i])
+		{
+			SDL_Cleanup("texture creation", win, ren, tex);
+			return EXIT_FAILURE;
+		}
+	}
+
+	TTF_Init();
+	TTF_Font *font = TTF_OpenFont(FONT_PATH.c_str(), 12);
+	if(!font)
+	{
+		SDL_Cleanup("font creation", win, ren, tex);
 		return EXIT_FAILURE;
 	}
 
-	Simulation sim(SCREEN_WIDTH, SCREEN_HEIGHT, tex);
+	Simulation sim(SIMULATION_WIDTH, SIMULATION_HEIGHT, tex[SIMULATION_TEXTURE]);
+
+	SDL_Surface *textSurface = TTF_RenderText_Solid(font, "Wood  Oil  Plasma", {255, 255, 255, 255});
 
 	SDL_Event e;
 	SDL_Point cursor = {0, 0};
@@ -68,6 +115,7 @@ int main(int argc, char **argv)
 	Uint8 mouseButton = 0;
 	Uint16 drawRadius = 15;
 	Simulation::Material material = Simulation::Material::SAND;
+	bool paused = false;
 	bool quit = false;
 	while(!quit)
 	{
@@ -113,28 +161,17 @@ int main(int argc, char **argv)
 				break;
 			}
 		}
-		
-		if(mouseButton)
-		{
-			sim.setCellLine(cursor, lastCursor, drawRadius, material);
-		}
 
-		sim.update();
-		SDL_UpdateTexture(tex, nullptr, sim.getDrawBuffer(), SCREEN_WIDTH * sizeof(Uint32));
+		if(mouseButton) { sim.setCellLine(cursor, lastCursor, drawRadius, material); }
+
+		if(!paused) { sim.update(); }
+		SDL_UpdateTexture(tex[SIMULATION_TEXTURE], nullptr, sim.getDrawBuffer(), SIMULATION_WIDTH * sizeof(Uint32));
 
 		SDL_RenderClear(ren);
-		SDL_RenderCopy(ren, tex, nullptr, nullptr);
+		SDL_RenderCopy(ren, tex[SIMULATION_TEXTURE], nullptr, &simulationRect);
+		SDL_RenderCopy(ren, tex[SELECTION_TEXTURE], nullptr, &selectionRect);
 
-		SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
-		for(int i = 0; i < drawRadius * 2; ++i)
-		{
-			int dist = round(sqrt(pow(drawRadius, 2) - pow(abs(drawRadius - i), 2)));
-			SDL_RenderDrawPoint(ren, cursor.x - drawRadius + i, cursor.y - dist);
-			SDL_RenderDrawPoint(ren, cursor.x - drawRadius + i, cursor.y + dist);
-			SDL_RenderDrawPoint(ren, cursor.x - dist, cursor.y - drawRadius + i);
-			SDL_RenderDrawPoint(ren, cursor.x + dist, cursor.y - drawRadius + i);
-		}
-		SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+		Drawing::drawCircle(ren, &cursor, &simulationRect, drawRadius);
 
 		SDL_RenderPresent(ren);
 
@@ -148,6 +185,6 @@ int main(int argc, char **argv)
 		lastTick = SDL_GetTicks();
 	}
 
-	SDL_Cleanup(std::string(), win, ren, tex);
+	SDL_Cleanup(std::string(), win, ren, tex, font);
 	return EXIT_SUCCESS;
 }

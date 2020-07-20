@@ -55,7 +55,8 @@ Simulation::Simulation(int _width, int _height, SDL_Texture *_tex)
 		false, false, false, false, false,
 		2, {6, 2},
 		{
-			{Direction::SOUTH, Direction::SOUTH, Direction::SOUTH_EAST, Direction::SOUTH, Direction::SOUTH, Direction::SOUTH_WEST},
+			{Direction::SOUTH, Direction::SOUTH, Direction::SOUTH_EAST, Direction::SOUTH, 
+				Direction::SOUTH, Direction::SOUTH_WEST},
 			{Direction::EAST, Direction::WEST}
 		}
 	};
@@ -65,7 +66,7 @@ Simulation::Simulation(int _width, int _height, SDL_Texture *_tex)
 		false, true, false, false, false,
 		2, {4, 2},
 		{
-			{Direction::NORTH, Direction::NORTH, Direction::NORTH_EAST, Direction::NORTH_WEST},
+			{Direction::NORTH, Direction::NORTH_EAST, Direction::NORTH, Direction::NORTH_WEST},
 			{Direction::EAST, Direction::WEST}
 		}
 	};
@@ -115,7 +116,8 @@ Simulation::Simulation(int _width, int _height, SDL_Texture *_tex)
 		false, true, false, true, false,
 		1, {8},
 		{
-			{Direction::NORTH_WEST, Direction::NORTH, Direction::NORTH_EAST, Direction::EAST, Direction::SOUTH_EAST, Direction::SOUTH, Direction::SOUTH_WEST, Direction::WEST}
+			{Direction::NORTH_WEST, Direction::NORTH, Direction::NORTH_EAST, Direction::EAST, 
+				Direction::SOUTH_EAST, Direction::SOUTH, Direction::SOUTH_WEST, Direction::WEST}
 		}
 	};
 	allSpecs[static_cast<int>(Material::WOOD)] = {
@@ -125,6 +127,8 @@ Simulation::Simulation(int _width, int _height, SDL_Texture *_tex)
 		0, {},
 		{}
 	};
+	//oil
+	//ice
 }
 
 Simulation::~Simulation()
@@ -140,7 +144,7 @@ void Simulation::update()
 {
 	//Because RNG is the main computational bottleneck, we create only a fraction of the needed numbers,
 	//then pick them using a pre-generated noise array. Each random number is used only with the modulo operator,
-	//so we can reuse each number several times by dividing by ten (*= 0.1 is faster) after each use.
+	//so we can reuse each number several times by dividing by ten after each use.
 	Uint32 *randBatch = new Uint32[RAND_BATCH_SIZE];
 	for(int i = 0; i < RAND_BATCH_SIZE; ++i) { randBatch[i] = xorshift128(); }
 
@@ -193,7 +197,7 @@ void Simulation::update()
 					if(newIndex == -1) { break; }
 					if(computeBuffer[newIndex] != Material::EMPTY)
 					{
-						//Chemical and physical reactions. General properties use boolean flags, while specific interactions are hard coded
+						//Chemical and physical reactions. General properties use booleans, while specific interactions are hard coded
 						const MaterialSpecs *collisionSpecs = &allSpecs[static_cast<int>(computeBuffer[newIndex])];
 						if(matSpecs->flaming && collisionSpecs->flammable)
 						{
@@ -265,107 +269,6 @@ void Simulation::update()
 	delete[] randBatch;
 }
 
-//Sets a cell to a material. Interpolates between colors to add visual variation
-void Simulation::setCell(Uint32 _index, Material _mat)
-{
-	computeBuffer[_index] = _mat;
-	
-	if(_mat != Material::EMPTY)
-	{
-		auto randLerp = [&](Uint8 min, Uint8 max) { return static_cast<Uint8>(min + round((max - min) * doubleDist(mt))); };
-		const MaterialSpecs *specs = &allSpecs[static_cast<int>(_mat)];
-		HsvColor interpolatedHsv = {
-			randLerp(specs->minColor.h, specs->maxColor.h),
-			randLerp(specs->minColor.s, specs->maxColor.s),
-			randLerp(specs->minColor.v, specs->maxColor.v)
-		};
-		SDL_Color rgba = HsvToRgb(&interpolatedHsv);
-		drawBuffer[_index] = SDL_MapRGBA(pixelFormat, rgba.r, rgba.g, rgba.b, rgba.a);
-	}
-	else
-	{
-		drawBuffer[_index] = SDL_MapRGBA(pixelFormat, 0, 0, 0, 255);
-	}
-
-	updatedCells->set(_index);
-}
-
-//Sets a circle of cells by radius for user input
-void Simulation::setCellRadius(SDL_Point _pos, Uint16 _rad, Material _mat)
-{
-	for(int i = 0; i < _rad * 2; ++i)
-	{
-		Uint16 slice = round(sqrt(pow(_rad, 2) - pow(abs(_rad - i), 2)));
-		for(int j = -slice; j < slice; ++j)
-		{
-			Uint32 x = _pos.x + j;
-			Uint32 y = _pos.y - _rad + i;
-			if(isInBounds(x, y))
-			{
-				Uint32 index = x + y * width;
-				if(computeBuffer[index] == Material::EMPTY)
-				{
-					setCell(index, _mat);
-				}
-			}
-		}
-	}
-}
-
-//Uses a modified version of the interger-only version of Bresenham's line algorithm 
-void Simulation::setCellFillLine(SDL_Point _start, SDL_Point _end, Uint16 _rad, bool _dir, bool _hor, Material _mat)
-{
-	bool di = true;
-	Sint32 d1, d2;
-	Uint32 i0, i1, j0;
-	if(_hor)
-	{
-		d1 = _end.x - _start.x;
-		d2 = _end.y - _start.y;
-		i0 = _start.x;
-		i1 = _end.x;
-		j0 = _start.y;
-	}
-	else
-	{
-		d1 = _end.y - _start.y;
-		d2 = _end.x - _start.x;
-		i0 = _start.y;
-		i1 = _end.y;
-		j0 = _start.x;
-	}
-	if(d2 < 0)
-	{
-		di = false;
-		d2 = -d2;
-	}
-	Sint32 D = 2 * d2 - d1;
-	Uint32 j = j0;
-	for(Uint32 i = i0; i < i1; ++i)
-	{
-		for(Uint16 k = 0; k < _rad * 1.5; ++k)
-		{
-			Uint32 x = _hor ? i : j;
-			Uint32 y = _hor ? j : i;
-			(_hor ? y : x) += (_dir ? k : -k) * (_hor ? -1 : 1);
-			if(isInBounds(x, y))
-			{
-				Uint32 index = x + y * width;
-				if(computeBuffer[index] == Material::EMPTY)
-				{
-					setCell(index, _mat);
-				}
-			}
-		}
-		if(D > 0)
-		{
-			j += di ? 1 : -1;
-			D -= 2 * d1;
-		}
-		D += 2 * d2;
-	}
-}
-
 //Draws a thick line between two points. This is used so that when the cursor is moved quickly it makes a contiguous line
 void Simulation::setCellLine(SDL_Point _start, SDL_Point _end, Uint16 _rad, Material _mat)
 {
@@ -387,8 +290,6 @@ void Simulation::setCellLine(SDL_Point _start, SDL_Point _end, Uint16 _rad, Mate
 		float angle = -atan2(dx, dy);
 		Sint32 tangentPointX = round(cos(angle) * _rad);
 		Sint32 tangentPointY = round(sin(angle) * _rad);
-		float slope = dy / dx;
-		//bool direction = angle > M_PI / 4 && angle < M_PI * 3 / 4 || angle > M_PI * 5 / 4 && angle < M_PI * 7 / 4;
 		setCellFillLine({_start.x + tangentPointX, _start.y + tangentPointY}, {_end.x + tangentPointX, _end.y + tangentPointY}, _rad, direction, horizontal, _mat);
 		setCellFillLine({_start.x - tangentPointX, _start.y - tangentPointY}, {_end.x - tangentPointX, _end.y - tangentPointY}, _rad, !direction, horizontal, _mat);
 	}
@@ -466,6 +367,107 @@ SDL_Color Simulation::HsvToRgb(const HsvColor *_hsv) const
 	}
 
 	return rgba;
+}
+
+//Sets a cell to a material. Interpolates between colors to add visual variation
+void Simulation::setCell(Uint32 _index, Material _mat)
+{
+	computeBuffer[_index] = _mat;
+
+	if(_mat != Material::EMPTY)
+	{
+		auto randLerp = [&](Uint8 min, Uint8 max) { return static_cast<Uint8>(min + round((max - min) * doubleDist(mt))); };
+		const MaterialSpecs *specs = &allSpecs[static_cast<int>(_mat)];
+		HsvColor interpolatedHsv = {
+			randLerp(specs->minColor.h, specs->maxColor.h),
+			randLerp(specs->minColor.s, specs->maxColor.s),
+			randLerp(specs->minColor.v, specs->maxColor.v)
+		};
+		SDL_Color rgba = HsvToRgb(&interpolatedHsv);
+		drawBuffer[_index] = SDL_MapRGBA(pixelFormat, rgba.r, rgba.g, rgba.b, rgba.a);
+	}
+	else
+	{
+		drawBuffer[_index] = SDL_MapRGBA(pixelFormat, 0, 0, 0, 255);
+	}
+
+	updatedCells->set(_index);
+}
+
+//Sets a circle of cells by radius for user input
+void Simulation::setCellRadius(SDL_Point _pos, Uint16 _rad, Material _mat)
+{
+	for(int i = 0; i < _rad * 2; ++i)
+	{
+		Uint16 slice = sqrt(pow(_rad, 2) - pow(abs(_rad - i), 2));
+		for(int j = -slice; j < slice; ++j)
+		{
+			Uint32 x = _pos.x + j;
+			Uint32 y = _pos.y - _rad + i;
+			if(isInBounds(x, y))
+			{
+				Uint32 index = x + y * width;// +1;
+				if(computeBuffer[index] == Material::EMPTY)
+				{
+					setCell(index, _mat);
+				}
+			}
+		}
+	}
+}
+
+//Uses a modified version of the interger-only version of Bresenham's line algorithm 
+void Simulation::setCellFillLine(SDL_Point _start, SDL_Point _end, Uint16 _rad, bool _dir, bool _hor, Material _mat)
+{
+	bool di = true;
+	Sint32 d1, d2;
+	Uint32 i0, i1, j0;
+	if(_hor)
+	{
+		d1 = _end.x - _start.x;
+		d2 = _end.y - _start.y;
+		i0 = _start.x;
+		i1 = _end.x;
+		j0 = _start.y;
+	}
+	else
+	{
+		d1 = _end.y - _start.y;
+		d2 = _end.x - _start.x;
+		i0 = _start.y;
+		i1 = _end.y;
+		j0 = _start.x;
+	}
+	if(d2 < 0)
+	{
+		di = false;
+		d2 = -d2;
+	}
+	Sint32 D = 2 * d2 - d1;
+	Uint32 j = j0;
+	for(Uint32 i = i0; i < i1; ++i)
+	{
+		for(Uint16 k = 0; k < _rad * 1.4; ++k)
+		{
+			Uint32 x = _hor ? i : j;
+			Uint32 y = _hor ? j : i;
+			(_hor ? y : x) += (_dir ? k : -k) * (_hor ? -1 : 1);
+			if(isInBounds(x, y))
+			{
+				Uint32 index = x + y * width;
+				if(computeBuffer[index] == Material::EMPTY)
+				{
+					setCell(index, _mat);
+				}
+			}
+		}
+		if(D > 0)
+		{
+			j += di ? 1 : -1;
+			D -= 2 * d1;
+		}
+		D += 2 * d2;
+	}
 }
 
 void Simulation::swapCell(Uint32 _current, Uint32 _next)
