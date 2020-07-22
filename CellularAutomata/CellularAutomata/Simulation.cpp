@@ -447,7 +447,7 @@ void Simulation::setCellFillLine(SDL_Point _start, SDL_Point _end, Uint16 _rad, 
 	Uint32 j = j0;
 	for(Uint32 i = i0; i < i1; ++i)
 	{
-		for(Uint16 k = 0; k < _rad * 1.4; ++k)
+		for(Uint16 k = 0; k < _rad * 1.5; ++k)
 		{
 			Uint32 x = _hor ? i : j;
 			Uint32 y = _hor ? j : i;
