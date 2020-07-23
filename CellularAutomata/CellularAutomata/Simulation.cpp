@@ -1,5 +1,10 @@
 #include "Simulation.hpp"
-#include "iostream"//sdfgsioudfnghoisdfnhoisuhn
+
+#include "Graphics.hpp"
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+//asdfasdfasdfasdfasdf
+#include <iostream>
 
 Simulation::Simulation(int _width, int _height, SDL_Texture *_tex)
 {
@@ -16,9 +21,8 @@ Simulation::Simulation(int _width, int _height, SDL_Texture *_tex)
 	std::uniform_int_distribution<int> xorSeedDist(100000000);
 
 	computeBuffer = new Material[size];
-	fillComputeBuffer();
 	drawBuffer = new Uint32[size];
-	fillDrawBuffer();
+	reset();
 	batchNoise = new Uint16[size];
 	iterationNoise = new Uint32[size];
 	for(int i = 0; i < size; ++i)
@@ -31,104 +35,45 @@ Simulation::Simulation(int _width, int _height, SDL_Texture *_tex)
 
 	updatedCells = new boost::dynamic_bitset<Uint64>(size);
 
+	//Loads in material properties from a json file.
 	//Behavior sets can be biased by using duplicate behaviors. However, 
 	//if less biased behaviors are not equally distributed from a left to right perspective, unwanted bias can occur.
-	allSpecs[static_cast<int>(Material::ROCK)] = {
-		{0, 0, 32}, {0, 0, 77}, 
-		0, 0, 255, 0, 
-		true, false, false, false, false,
-		0, {},
-		{}
-	};
-	allSpecs[static_cast<int>(Material::SAND)] = {
-		{30, 214, 156}, {38, 240, 243}, 
-		1, 2, 120, 0, 
-		true, false, false, false, true,
-		1, {1},
+	boost::property_tree::ptree root;
+	boost::property_tree::read_json(MATERIAL_FILE_PATH, root);
+	for(auto it = root.begin(); it != root.end(); ++it)
+	{
+		int dist = std::distance(root.begin(), it);
+		if(dist >= static_cast<int>(Material::TOTAL_MATERIALS) - 1) { break; }
+		MaterialSpecs &mat = allSpecs[dist + 1];
+		mat.name = it->first;
+		mat.textPadding = it->second.get<int>("textPadding");
+		auto color = it->second.get_child("minColor");
+		mat.minColor = {color.get<Uint8>("h"), color.get<Uint8>("s"), color.get<Uint8>("v")};
+		color = it->second.get_child("maxColor");
+		mat.maxColor = {color.get<Uint8>("h"), color.get<Uint8>("s"), color.get<Uint8>("v")};
+		mat.minSpeed = it->second.get<int>("minSpeed");
+		mat.maxSpeed = it->second.get<int>("maxSpeed");
+		mat.density = it->second.get<int>("density");
+		mat.deathChance = it->second.get<int>("deathChance");
+		mat.solid = it->second.get<bool>("solid");
+		mat.flaming = it->second.get<bool>("flaming");
+		mat.flammable = it->second.get<bool>("flammable");
+		mat.melting = it->second.get<bool>("melting");
+		mat.meltable = it->second.get<bool>("meltable");
+		int i = 0;
+		for(auto arr : it->second.get_child("behavior"))
 		{
-			{Direction::SOUTH}
+			int j = 0;
+			for(auto dir : arr.second)
+			{
+				mat.behavior[i][j] = static_cast<Direction>(dir.second.get_value<int>());
+				++j;
+			}
+			mat.behaviorCounts[i] = j;
+			++i;
 		}
-	};
-	allSpecs[static_cast<int>(Material::WATER)] = {
-		{140, 186, 255}, {164, 255, 255}, 
-		2, 3, 50, 0, 
-		false, false, false, false, false,
-		2, {6, 2},
-		{
-			{Direction::SOUTH, Direction::SOUTH, Direction::SOUTH_EAST, Direction::SOUTH, 
-				Direction::SOUTH, Direction::SOUTH_WEST},
-			{Direction::EAST, Direction::WEST}
-		}
-	};
-	allSpecs[static_cast<int>(Material::FIRE)] = {
-		{0, 219, 255}, {19, 255, 255}, 
-		3, 4, 0, 10, 
-		false, true, false, false, false,
-		2, {4, 2},
-		{
-			{Direction::NORTH, Direction::NORTH_EAST, Direction::NORTH, Direction::NORTH_WEST},
-			{Direction::EAST, Direction::WEST}
-		}
-	};
-	allSpecs[static_cast<int>(Material::LAVA)] = {
-		{13, 255, 180}, {30, 255, 255},
-		1, 3, 100, 0,
-		false, true, false, true, false,
-		2, {1, 2},
-		{
-			{Direction::SOUTH},
-			{Direction::EAST, Direction::WEST}
-		}
-	};
-	allSpecs[static_cast<int>(Material::GAS)] = {
-		{194, 60, 224}, {209, 120, 255}, 
-		5, 7, 10, 0, 
-		false, false, true, false, false,
-		2, {3, 2},
-		{
-			{Direction::NORTH, Direction::NORTH_EAST, Direction::NORTH_WEST},
-			{Direction::EAST, Direction::WEST}
-		}
-	};
-	allSpecs[static_cast<int>(Material::STEAM)] = {
-		{0, 0, 200}, {0, 0, 255},
-		4, 6, 5, 50,
-		false, false, false, false, false,
-		2, {3, 2},
-		{
-			{Direction::NORTH, Direction::NORTH_EAST, Direction::NORTH_WEST},
-			{Direction::EAST, Direction::WEST}
-		}
-	};
-	allSpecs[static_cast<int>(Material::GRAVEL)] = {
-		{37, 0, 40}, {37, 66, 190},
-		2, 4, 150, 0,
-		true, false, false, false, false,
-		2, {1, 2},
-		{
-			{Direction::SOUTH},
-			{Direction::SOUTH_EAST, Direction::SOUTH_WEST}
-		}
-	};
-	allSpecs[static_cast<int>(Material::PLASMA)] = {
-		{180, 140, 255}, {213, 255, 255},
-		2, 5, 0, 7,
-		false, true, false, true, false,
-		1, {8},
-		{
-			{Direction::NORTH_WEST, Direction::NORTH, Direction::NORTH_EAST, Direction::EAST, 
-				Direction::SOUTH_EAST, Direction::SOUTH, Direction::SOUTH_WEST, Direction::WEST}
-		}
-	};
-	allSpecs[static_cast<int>(Material::WOOD)] = {
-		{9, 180, 122}, {21, 220, 77},
-		0, 0, 250, 0,
-		true, false, true, false, false,
-		0, {},
-		{}
-	};
-	//oil
-	//ice
+		mat.behaviorSetCount = i;
+	}
 }
 
 Simulation::~Simulation()
@@ -138,6 +83,18 @@ Simulation::~Simulation()
 	delete[] batchNoise;
 	delete[] iterationNoise;
 	delete updatedCells;
+}
+
+std::string Simulation::getFormattedNames() const
+{
+	std::string result;
+	for(int i = 1; i < static_cast<int>(Material::TOTAL_MATERIALS); ++i)
+	{
+		for(int j = 0; j < allSpecs[i].textPadding; ++j) { result += ' '; }
+		result += allSpecs[i].name;
+		if(i % 3 == 0) { result += '\n'; }
+	}
+	return result;
 }
 
 void Simulation::update()
@@ -269,29 +226,38 @@ void Simulation::update()
 	delete[] randBatch;
 }
 
-//Draws a thick line between two points. This is used so that when the cursor is moved quickly it makes a contiguous line
+void Simulation::reset(Material _mat, const SDL_Color *_col)
+{
+	memset(computeBuffer, static_cast<int>(_mat), size * sizeof(Uint8));
+	memset(drawBuffer, Graphics::getColorInt(_col), size * sizeof(Uint32));
+}
+
+//Draws a thick line between two points. This is used so that when the cursor is moved quickly it makes a contiguous line instead of dots
 void Simulation::setCellLine(SDL_Point _start, SDL_Point _end, Uint16 _rad, Material _mat)
 {
 	setCellRadius(_start, _rad, _mat);
 	if(!(_start.x == _end.x && _start.y == _end.y))
 	{
 		setCellRadius(_end, _rad, _mat);
-		Sint32 dx = _end.x - _start.x;
-		Sint32 dy = _end.y - _start.y;
-		bool horizontal = abs(dx) >= abs(dy);
-		bool direction = false;
-		if(horizontal && dx < 0 || !horizontal && dy < 0)
+		float angle = -atan2(_end.x - _start.x, _end.y - _start.y);
+		Sint32 tanDiffX = round(cos(angle) * _rad);
+		Sint32 tanDiffY = round(sin(angle) * _rad);
+		Sint32 *tanLineX, *tanLineY, *mainLineX, *mainLineY;
+		Uint16 tanLen = Graphics::bresenhams(_start.x + tanDiffX, _start.y + tanDiffY, _start.x - tanDiffX, _start.y - tanDiffY, tanLineX, tanLineY, true);
+		Uint16 mainLen = Graphics::bresenhams(_start.x + tanDiffX, _start.y + tanDiffY, _end.x + tanDiffX, _end.y + tanDiffY, mainLineX, mainLineY, false);
+		for(int i = 0; i < tanLen; ++i)
 		{
-			SDL_Point temp = _start;
-			_start = _end;
-			_end = temp;
-			direction = true;
+			for(int j = 0; j < mainLen; ++j)
+			{
+				Sint32 diffX = (_start.x + tanDiffX) - tanLineX[i];
+				Sint32 diffY = (_start.y + tanDiffY) - tanLineY[i];
+				setCellIfValid(mainLineX[j] - diffX, mainLineY[j] - diffY, _mat);
+			}
 		}
-		float angle = -atan2(dx, dy);
-		Sint32 tangentPointX = round(cos(angle) * _rad);
-		Sint32 tangentPointY = round(sin(angle) * _rad);
-		setCellFillLine({_start.x + tangentPointX, _start.y + tangentPointY}, {_end.x + tangentPointX, _end.y + tangentPointY}, _rad, direction, horizontal, _mat);
-		setCellFillLine({_start.x - tangentPointX, _start.y - tangentPointY}, {_end.x - tangentPointX, _end.y - tangentPointY}, _rad, !direction, horizontal, _mat);
+		delete[] tanLineX;
+		delete[] tanLineY;
+		delete[] mainLineX;
+		delete[] mainLineY;
 	}
 }
 
@@ -317,11 +283,6 @@ Uint32 Simulation::getRelative(Uint32 _index, Direction _dir) const
 		if(_index >= size || _index < 0) { return -1; }
 	}
 	return _index;
-}
-
-bool Simulation::isInBounds(Uint32 _x, Uint32 _y) const
-{
-	return _y >= 0 && _y < height && _x >= 0 && _x < width;
 }
 
 //Converts a hsv value to rgb. We smoothly interpolate colors using hsv, then convert to rgb so SDL can use them
@@ -388,11 +349,21 @@ void Simulation::setCell(Uint32 _index, Material _mat)
 	}
 	else
 	{
-		drawBuffer[_index] = SDL_MapRGBA(pixelFormat, 0, 0, 0, 255);
+		drawBuffer[_index] = SDL_MapRGBA(pixelFormat, EMPTY_COLOR.r, EMPTY_COLOR.g, EMPTY_COLOR.b, EMPTY_COLOR.a);
 	}
 
 	updatedCells->set(_index);
 }
+
+void Simulation::setCellIfValid(Sint32 _x, Sint32 _y, Material _mat)
+{
+	Uint32 index = _x + _y * width;
+	if(_y >= 0 && _y < height && _x >= 0 && _x < width && (_mat == Material::EMPTY || computeBuffer[index] == Material::EMPTY))
+	{
+		setCell(index, _mat);
+	}
+}
+
 
 //Sets a circle of cells by radius for user input
 void Simulation::setCellRadius(SDL_Point _pos, Uint16 _rad, Material _mat)
@@ -402,71 +373,10 @@ void Simulation::setCellRadius(SDL_Point _pos, Uint16 _rad, Material _mat)
 		Uint16 slice = sqrt(pow(_rad, 2) - pow(abs(_rad - i), 2));
 		for(int j = -slice; j < slice; ++j)
 		{
-			Uint32 x = _pos.x + j;
-			Uint32 y = _pos.y - _rad + i;
-			if(isInBounds(x, y))
-			{
-				Uint32 index = x + y * width;// +1;
-				if(computeBuffer[index] == Material::EMPTY)
-				{
-					setCell(index, _mat);
-				}
-			}
+			Sint32 x = _pos.x + j;
+			Sint32 y = _pos.y - _rad + i;
+			setCellIfValid(x, y, _mat);
 		}
-	}
-}
-
-//Uses a modified version of the interger-only version of Bresenham's line algorithm 
-void Simulation::setCellFillLine(SDL_Point _start, SDL_Point _end, Uint16 _rad, bool _dir, bool _hor, Material _mat)
-{
-	bool di = true;
-	Sint32 d1, d2;
-	Uint32 i0, i1, j0;
-	if(_hor)
-	{
-		d1 = _end.x - _start.x;
-		d2 = _end.y - _start.y;
-		i0 = _start.x;
-		i1 = _end.x;
-		j0 = _start.y;
-	}
-	else
-	{
-		d1 = _end.y - _start.y;
-		d2 = _end.x - _start.x;
-		i0 = _start.y;
-		i1 = _end.y;
-		j0 = _start.x;
-	}
-	if(d2 < 0)
-	{
-		di = false;
-		d2 = -d2;
-	}
-	Sint32 D = 2 * d2 - d1;
-	Uint32 j = j0;
-	for(Uint32 i = i0; i < i1; ++i)
-	{
-		for(Uint16 k = 0; k < _rad * 1.5; ++k)
-		{
-			Uint32 x = _hor ? i : j;
-			Uint32 y = _hor ? j : i;
-			(_hor ? y : x) += (_dir ? k : -k) * (_hor ? -1 : 1);
-			if(isInBounds(x, y))
-			{
-				Uint32 index = x + y * width;
-				if(computeBuffer[index] == Material::EMPTY)
-				{
-					setCell(index, _mat);
-				}
-			}
-		}
-		if(D > 0)
-		{
-			j += di ? 1 : -1;
-			D -= 2 * d1;
-		}
-		D += 2 * d2;
 	}
 }
 
@@ -479,16 +389,6 @@ void Simulation::swapCell(Uint32 _current, Uint32 _next)
 	drawBuffer[_next] = drawBuffer[_current];
 	drawBuffer[_current] = tempCol;
 	updatedCells->set(_next);
-}
-
-void Simulation::fillComputeBuffer(Material _mat)
-{
-	memset(computeBuffer, static_cast<int>(_mat), size * sizeof(Uint8));
-}
-
-void Simulation::fillDrawBuffer(Uint8 _color)
-{
-	memset(drawBuffer, _color, size * sizeof(Uint32));
 }
 
 //A highly efficient but imperfect random number generation algorithm

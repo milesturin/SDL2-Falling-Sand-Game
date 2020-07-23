@@ -1,0 +1,303 @@
+{
+  "Rock": {
+    "textPadding": 2,
+    "minColor": {
+      "h": 0,
+      "s": 0,
+      "v": 32
+    },
+    "maxColor": {
+      "h": 0,
+      "s": 0,
+      "v": 77
+    },
+    "minSpeed": 0,
+    "maxSpeed": 0,
+    "density": 255,
+    "deathChance": 0,
+    "solid": true,
+    "flaming": false,
+    "flammable": false,
+    "melting": false,
+    "meltable": false,
+    "behavior": [ [] ]
+  },
+  "Sand": {
+    "textPadding": 5,
+    "minColor": {
+      "h": 30,
+      "s": 214,
+      "v": 156
+    },
+    "maxColor": {
+      "h": 38,
+      "s": 240,
+      "v": 243
+    },
+    "minSpeed": 1,
+    "maxSpeed": 2,
+    "density": 120,
+    "deathChance": 0,
+    "solid": true,
+    "flaming": false,
+    "flammable": false,
+    "melting": false,
+    "meltable": true,
+    "behavior": [
+      [ 5 ]
+    ]
+  },
+  "Water": {
+    "textPadding": 4,
+    "minColor": {
+      "h": 140,
+      "s": 186,
+      "v": 255
+    },
+    "maxColor": {
+      "h": 164,
+      "s": 255,
+      "v": 255
+    },
+    "minSpeed": 2,
+    "maxSpeed": 3,
+    "density": 50,
+    "deathChance": 0,
+    "solid": false,
+    "flaming": false,
+    "flammable": false,
+    "melting": false,
+    "meltable": false,
+    "behavior": [
+      [ 5, 5, 4, 5, 5, 6 ],
+      [ 3, 7 ]
+    ]
+  },
+  "Fire": {
+    "textPadding": 3,
+    "minColor": {
+      "h": 0,
+      "s": 219,
+      "v": 255
+    },
+    "maxColor": {
+      "h": 19,
+      "s": 255,
+      "v": 255
+    },
+    "minSpeed": 3,
+    "maxSpeed": 4,
+    "density": 0,
+    "deathChance": 10,
+    "solid": false,
+    "flaming": true,
+    "flammable": false,
+    "melting": false,
+    "meltable": false,
+    "behavior": [
+      [ 1, 0, 1, 2 ],
+      [ 3, 7 ]
+    ]
+  },
+  "Lava": {
+    "textPadding": 6,
+    "minColor": {
+      "h": 13,
+      "s": 255,
+      "v": 180
+    },
+    "maxColor": {
+      "h": 30,
+      "s": 255,
+      "v": 255
+    },
+    "minSpeed": 1,
+    "maxSpeed": 3,
+    "density": 100,
+    "deathChance": 0,
+    "solid": false,
+    "flaming": true,
+    "flammable": false,
+    "melting": true,
+    "meltable": false,
+    "behavior": [
+      [ 5 ],
+      [ 3, 7 ]
+    ]
+  },
+  "Oil": {
+    "textPadding": 6,
+    "minColor": {
+      "h": 10,
+      "s": 178,
+      "v": 64
+    },
+    "maxColor": {
+      "h": 17,
+      "s": 219,
+      "v": 115
+    },
+    "minSpeed": 1,
+    "maxSpeed": 3,
+    "density": 90,
+    "deathChance": 0,
+    "solid": false,
+    "flaming": false,
+    "flammable": true,
+    "melting": false,
+    "meltable": false,
+    "behavior": [
+      [ 5 ],
+      [ 3, 7 ]
+    ]
+  },
+  "Ice": {
+    "textPadding": 4,
+    "minColor": {
+      "h": 132,
+      "s": 99,
+      "v": 255
+    },
+    "maxColor": {
+      "h": 149,
+      "s": 156,
+      "v": 255
+    },
+    "minSpeed": 0,
+    "maxSpeed": 0,
+    "density": 245,
+    "deathChance": 0,
+    "solid": true,
+    "flaming": false,
+    "flammable": false,
+    "melting": false,
+    "meltable": false,
+    "behavior": [ [] ]
+  },
+  "Gas": {
+    "textPadding": 7,
+    "minColor": {
+      "h": 194,
+      "s": 60,
+      "v": 244
+    },
+    "maxColor": {
+      "h": 209,
+      "s": 120,
+      "v": 255
+    },
+    "minSpeed": 5,
+    "maxSpeed": 7,
+    "density": 10,
+    "deathChance": 0,
+    "solid": false,
+    "flaming": false,
+    "flammable": true,
+    "melting": false,
+    "meltable": false,
+    "behavior": [
+      [ 0, 1, 2 ],
+      [ 3, 7 ]
+    ]
+  },
+  "Steam": {
+    "textPadding": 5,
+    "minColor": {
+      "h": 0,
+      "s": 0,
+      "v": 195
+    },
+    "maxColor": {
+      "h": 0,
+      "s": 0,
+      "v": 255
+    },
+    "minSpeed": 4,
+    "maxSpeed": 6,
+    "density": 5,
+    "deathChance": 50,
+    "solid": false,
+    "flaming": false,
+    "flammable": false,
+    "melting": false,
+    "meltable": false,
+    "behavior": [
+      [ 0, 1, 2 ],
+      [ 3, 7 ]
+    ]
+  },
+  "Gravel": {
+    "textPadding": 1,
+    "minColor": {
+      "h": 37,
+      "s": 0,
+      "v": 40
+    },
+    "maxColor": {
+      "h": 37,
+      "s": 66,
+      "v": 190
+    },
+    "minSpeed": 2,
+    "maxSpeed": 4,
+    "density": 150,
+    "deathChance": 0,
+    "solid": true,
+    "flaming": false,
+    "flammable": false,
+    "melting": false,
+    "meltable": false,
+    "behavior": [
+      [ 5 ],
+      [ 4, 6 ]
+    ]
+  },
+  "Wood": {
+    "textPadding": 3,
+    "minColor": {
+      "h": 9,
+      "s": 180,
+      "v": 122
+    },
+    "maxColor": {
+      "h": 21,
+      "s": 220,
+      "v": 77
+    },
+    "minSpeed": 0,
+    "maxSpeed": 0,
+    "density": 250,
+    "deathChance": 0,
+    "solid": true,
+    "flaming": false,
+    "flammable": true,
+    "melting": false,
+    "meltable": false,
+    "behavior": [ [] ]
+  },
+  "Plasma": {
+    "textPadding": 3,
+    "minColor": {
+      "h": 180,
+      "s": 140,
+      "v": 255
+    },
+    "maxColor": {
+      "h": 213,
+      "s": 255,
+      "v": 255
+    },
+    "minSpeed": 2,
+    "maxSpeed": 5,
+    "density": 0,
+    "deathChance": 7,
+    "solid": false,
+    "flaming": true,
+    "flammable": false,
+    "melting": true,
+    "meltable": false,
+    "behavior": [
+      [ 0, 1, 2, 3, 4, 5, 6, 7 ]
+    ]
+  }
+}
