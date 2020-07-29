@@ -7,16 +7,8 @@ void Graphics::setRenderColor(SDL_Renderer *_ren, const SDL_Color *_col)
 	SDL_SetRenderDrawColor(_ren, _col->r, _col->g, _col->b, _col->a);
 }
 
-Uint32 Graphics::getColorInt(const SDL_Color *_col)
-{
-	Uint32 result = _col->r;
-	result = (result << 8) + _col->g;
-	result = (result << 8) + _col->b;
-	return result;
-}
-
 //Uses a modified version of the Midpoint Circle Algorithm
-void Graphics::drawCircle(SDL_Renderer *_ren, const SDL_Point *_center, const SDL_Rect *_bounds, Uint16 _rad, const SDL_Color *_col)
+void Graphics::drawCircle(SDL_Renderer *_ren, const SDL_Point *_center, const SDL_Rect *_bounds, Uint16 _rad)
 {
 	if(!SDL_PointInRect(_center, _bounds)) { return; }
 
@@ -26,7 +18,6 @@ void Graphics::drawCircle(SDL_Renderer *_ren, const SDL_Point *_center, const SD
 	Sint32 ty = 1;
 	Sint32 error = tx - _rad * 2;
 
-	setRenderColor(_ren, _col);
 	while(x >= y)
 	{
 		Sint32 lookup[16] = {x, -y, x, y, -x, -y, -x, y, y, -x, y, x, -y, -x, -y, x};

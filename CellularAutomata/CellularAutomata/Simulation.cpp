@@ -3,18 +3,14 @@
 #include "Graphics.hpp"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
-//asdfasdfasdfasdfasdf
-#include <iostream>
 
-Simulation::Simulation(int _width, int _height, SDL_Texture *_tex)
+Simulation::Simulation(int _width, int _height, Uint32 _pixelFormat)
 {
 	width = _width;
 	height = _height;
 	size = static_cast<Uint64>(_width) * static_cast<Uint64>(_height);
 
-	Uint32 intFormat;
-	SDL_QueryTexture(_tex, &intFormat, nullptr, nullptr, nullptr);
-	pixelFormat = SDL_AllocFormat(intFormat);
+	pixelFormat = SDL_AllocFormat(_pixelFormat);
 
 	mt = std::mt19937(std::time(0));
 	std::uniform_real_distribution<double> doubleDist(0.0, 1.0);
@@ -46,15 +42,14 @@ Simulation::Simulation(int _width, int _height, SDL_Texture *_tex)
 		if(dist >= static_cast<int>(Material::TOTAL_MATERIALS) - 1) { break; }
 		MaterialSpecs &mat = allSpecs[dist + 1];
 		mat.name = it->first;
-		mat.textPadding = it->second.get<int>("textPadding");
 		auto color = it->second.get_child("minColor");
 		mat.minColor = {color.get<Uint8>("h"), color.get<Uint8>("s"), color.get<Uint8>("v")};
 		color = it->second.get_child("maxColor");
 		mat.maxColor = {color.get<Uint8>("h"), color.get<Uint8>("s"), color.get<Uint8>("v")};
-		mat.minSpeed = it->second.get<int>("minSpeed");
-		mat.maxSpeed = it->second.get<int>("maxSpeed");
-		mat.density = it->second.get<int>("density");
-		mat.deathChance = it->second.get<int>("deathChance");
+		mat.minSpeed = it->second.get<Uint8>("minSpeed");
+		mat.maxSpeed = it->second.get<Uint8>("maxSpeed");
+		mat.density = it->second.get<Uint8>("density");
+		mat.deathChance = it->second.get<Uint8>("deathChance");
 		mat.solid = it->second.get<bool>("solid");
 		mat.flaming = it->second.get<bool>("flaming");
 		mat.flammable = it->second.get<bool>("flammable");
@@ -83,16 +78,16 @@ Simulation::~Simulation()
 	delete[] batchNoise;
 	delete[] iterationNoise;
 	delete updatedCells;
+	SDL_FreeFormat(pixelFormat);
 }
 
-std::string Simulation::getFormattedNames() const
+std::string Simulation::getMaterialString() const
 {
-	std::string result;
+	std::string result = std::string();
 	for(int i = 1; i < static_cast<int>(Material::TOTAL_MATERIALS); ++i)
 	{
-		for(int j = 0; j < allSpecs[i].textPadding; ++j) { result += ' '; }
 		result += allSpecs[i].name;
-		if(i % 3 == 0) { result += '\n'; }
+		result += ' ';
 	}
 	return result;
 }
@@ -124,6 +119,15 @@ void Simulation::update()
 			return result;
 		};
 
+		if(matSpecs->deathChance > 0)
+		{
+			if(preGenRandRange(1, matSpecs->deathChance) == 1)
+			{
+				setCell(index, Material::EMPTY);
+				continue;
+			}
+		}
+
 		bool moved = false;
 		Uint8 speed = preGenRandRange(matSpecs->minSpeed, matSpecs->maxSpeed);
 
@@ -131,15 +135,6 @@ void Simulation::update()
 		for(int j = 0; j < matSpecs->behaviorSetCount; ++j)
 		{
 			if(moved) { break; }
-
-			if(matSpecs->deathChance > 0)
-			{
-				if(preGenRandRange(1, matSpecs->deathChance) == 1)
-				{
-					setCell(index, Material::EMPTY);
-					break;
-				}
-			}
 
 			//Tries each direction in each behavior set, starting from a random one.
 			Uint8 directionIndex = preGenRandRange(0, matSpecs->behaviorCounts[j] - 1);
@@ -229,7 +224,7 @@ void Simulation::update()
 void Simulation::reset(Material _mat, const SDL_Color *_col)
 {
 	memset(computeBuffer, static_cast<int>(_mat), size * sizeof(Uint8));
-	memset(drawBuffer, Graphics::getColorInt(_col), size * sizeof(Uint32));
+	memset(drawBuffer, SDL_MapRGBA(pixelFormat, _col->r, _col->g, _col->b, _col->a), size * sizeof(Uint32));
 }
 
 //Draws a thick line between two points. This is used so that when the cursor is moved quickly it makes a contiguous line instead of dots
@@ -363,7 +358,6 @@ void Simulation::setCellIfValid(Sint32 _x, Sint32 _y, Material _mat)
 		setCell(index, _mat);
 	}
 }
-
 
 //Sets a circle of cells by radius for user input
 void Simulation::setCellRadius(SDL_Point _pos, Uint16 _rad, Material _mat)

@@ -56,7 +56,6 @@ public:
 	struct MaterialSpecs
 	{
 		std::string name;
-		Uint8 textPadding;
 		HsvColor minColor, maxColor;
 		Uint8 minSpeed, maxSpeed, density, deathChance;
 		Sint8 temperature;
@@ -65,14 +64,15 @@ public:
 		Direction behavior[MAX_BEHAVIOR_SETS][MAX_BEHAVIORS_PER_SET];
 	};
 
-	Simulation(int _width, int _height, SDL_Texture *_tex);
+	Simulation(int _width, int _height, Uint32 _pixelFormat);
 	~Simulation();
 
 	Uint32 *getDrawBuffer() const { return drawBuffer; };
-	std::string getFormattedNames() const;
+	std::string getMaterialString() const;
 
 	void update();
 	void reset(Material _mat = Material::EMPTY, const SDL_Color *_col = &EMPTY_COLOR);
+	void setPixelFormat(Uint32 _pixelFormat) { pixelFormat = SDL_AllocFormat(_pixelFormat); };
 	void setCellLine(SDL_Point _start, SDL_Point _end, Uint16 _rad, Material _mat);
 
 private:

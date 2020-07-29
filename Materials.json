@@ -1,6 +1,5 @@
 {
   "Rock": {
-    "textPadding": 2,
     "minColor": {
       "h": 0,
       "s": 0,
@@ -23,7 +22,6 @@
     "behavior": [ [] ]
   },
   "Sand": {
-    "textPadding": 5,
     "minColor": {
       "h": 30,
       "s": 214,
@@ -48,7 +46,6 @@
     ]
   },
   "Water": {
-    "textPadding": 4,
     "minColor": {
       "h": 140,
       "s": 186,
@@ -74,7 +71,6 @@
     ]
   },
   "Fire": {
-    "textPadding": 3,
     "minColor": {
       "h": 0,
       "s": 219,
@@ -88,7 +84,7 @@
     "minSpeed": 3,
     "maxSpeed": 4,
     "density": 0,
-    "deathChance": 10,
+    "deathChance": 8,
     "solid": false,
     "flaming": true,
     "flammable": false,
@@ -100,7 +96,6 @@
     ]
   },
   "Lava": {
-    "textPadding": 6,
     "minColor": {
       "h": 13,
       "s": 255,
@@ -126,7 +121,6 @@
     ]
   },
   "Oil": {
-    "textPadding": 6,
     "minColor": {
       "h": 10,
       "s": 178,
@@ -152,7 +146,6 @@
     ]
   },
   "Ice": {
-    "textPadding": 4,
     "minColor": {
       "h": 132,
       "s": 99,
@@ -175,7 +168,6 @@
     "behavior": [ [] ]
   },
   "Gas": {
-    "textPadding": 7,
     "minColor": {
       "h": 194,
       "s": 60,
@@ -201,7 +193,6 @@
     ]
   },
   "Steam": {
-    "textPadding": 5,
     "minColor": {
       "h": 0,
       "s": 0,
@@ -215,7 +206,7 @@
     "minSpeed": 4,
     "maxSpeed": 6,
     "density": 5,
-    "deathChance": 50,
+    "deathChance": 55,
     "solid": false,
     "flaming": false,
     "flammable": false,
@@ -227,7 +218,6 @@
     ]
   },
   "Gravel": {
-    "textPadding": 1,
     "minColor": {
       "h": 37,
       "s": 0,
@@ -253,16 +243,15 @@
     ]
   },
   "Wood": {
-    "textPadding": 3,
     "minColor": {
-      "h": 9,
-      "s": 180,
-      "v": 122
+      "h": 24,
+      "s": 178,
+      "v": 117
     },
     "maxColor": {
-      "h": 21,
-      "s": 220,
-      "v": 77
+      "h": 26,
+      "s": 196,
+      "v": 209
     },
     "minSpeed": 0,
     "maxSpeed": 0,
@@ -276,7 +265,6 @@
     "behavior": [ [] ]
   },
   "Plasma": {
-    "textPadding": 3,
     "minColor": {
       "h": 180,
       "s": 140,
@@ -290,7 +278,7 @@
     "minSpeed": 2,
     "maxSpeed": 5,
     "density": 0,
-    "deathChance": 7,
+    "deathChance": 6,
     "solid": false,
     "flaming": true,
     "flammable": false,

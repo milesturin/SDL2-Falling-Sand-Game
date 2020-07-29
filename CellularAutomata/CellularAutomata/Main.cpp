@@ -2,6 +2,7 @@
 #include "SDL_ttf.h"
 #include "Simulation.hpp"
 #include "Graphics.hpp"
+#include "Texture.hpp"
 
 #include <iostream>
 #include <string>
@@ -15,72 +16,67 @@ rename solution and repo
 build boost bcp, look into property config, fix boost config
 make fire work down
 remove iostrema from everywhere
-erase
-reset
-pause
 rename window
 remove debug
-switch from bool flags to temp
+switch from bool flags to temperature
 freezing
 improve button system and move from spaces to composite textures
 window icon
+save/load with .bin
+liquid pressure
+non polar chemical reactions
 */
 
 const Uint32 SCREEN_WIDTH = 1500;
 const Uint32 SCREEN_HEIGHT = 800;
 const Uint32 SIMULATION_WIDTH = 1150;
 const Uint32 SIMULATION_HEIGHT = 800;
+const SDL_Rect SIMULATION_RECT = {0, 0, SIMULATION_WIDTH, SIMULATION_HEIGHT};
 
 const Uint32 TICKS_PER_FRAME = 30;
 const Uint32 PERFORMANCE_POLL_RATE = 15;
 
 const std::string FONT_FILE_PATH = "../../Fipps-Regular.ttf";
-const Uint8 TEXTURE_COUNT = 4;
-const Uint8 SIMULATION_TEXTURE = 0;
-const Uint8 INFO_UI_TEXTURE = 1;
-const Uint8 TOOLS_UI_TEXTURE = 2;
-const Uint8 MATERIALS_UI_TEXTURE = 3;
-
-const Uint8 BUTTON_COUNT = static_cast<int>(Simulation::Material::TOTAL_MATERIALS) + 2;
-const Uint8 BUTTONS_IN_ROW = 3;
-const float BUTTON_MARGIN = 0.05;
-const Uint8 TOOL_BUTTON_COUNT = 3;
-const Uint8 PAUSE_BUTTON = 0;
-const Uint8 ERASE_BUTTON = 1;
-const Uint8 RESET_BUTTON = 2;
-
-const int UI_HORIZONTAL_MARGIN = 20;
-const int UI_VERTICAL_MARGIN[TEXTURE_COUNT] = {0, 12, 80, 150};
 
 const Uint16 MIN_DRAW_RADIUS = 3;
 const Uint16 MAX_DRAW_RADIUS = 75;
 
-const SDL_Color TEXT_COLOR = {255, 255, 255, 255};
+const Sint32 UI_HORIZONTAL_MARGIN = 20;
+const Sint32 UI_VERTICAL_MARGIN[] = {0, 12, 80, 160};
+
 const SDL_Color CURSOR_COLOR = {255, 255, 255, 255};
 const SDL_Color UI_PANEL_COLOR = {80, 80, 80, 255};
-const SDL_Color UI_SELECT_COLOR = {255, 0, 0, 255};
 
+enum class TextureID : Uint8 {
+	SIMULATION_TEXTURE = 0,
+	INFO_UI_TEXTURE,
+	TOOLS_UI_TEXTURE,
+	MATERIALS_UI_TEXTURE,
+	TOTAL_TEXTURES
+};
+
+enum class ToolButton : Uint8 {
+	PAUSE = 0,
+	ERASE,
+	RESET,
+	TOTAL_BUTTONS
+};
 
 //Free all sdl resources
 void SDL_Cleanup(std::string _error, SDL_Window *_win = nullptr, SDL_Renderer *_ren = nullptr, 
-		SDL_Texture *_tex[TEXTURE_COUNT] = nullptr, TTF_Font *_font = nullptr)
+	TTF_Font *_font = nullptr, Texture *_tex[] = nullptr)
 {
 	if(!_error.empty())
 	{
-		std::string error = "SDL error at: " + _error + "\nerror: " +SDL_GetError();
+		std::string error = "SDL error at: " + _error + "\nerror: " + SDL_GetError();
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "SDL ERROR", error.c_str(), _win);
 	}
 
 	if(_win) { SDL_DestroyWindow(_win); }
 	if(_ren) { SDL_DestroyRenderer(_ren); }
-	if(_tex)
-	{
-		for(int i = 0; i < TEXTURE_COUNT; ++i)
-		{
-			if(_tex[i]) { SDL_DestroyTexture(_tex[i]); }
-		}
-	}
 	if(_font) { TTF_CloseFont(_font); }
+	if(_tex) { for(int i = 0; i < static_cast<int>(TextureID::TOTAL_TEXTURES); ++i) { if(_tex[i]) { delete _tex[i]; } } }
+	
 	TTF_Quit();
 	SDL_Quit();
 }
@@ -108,59 +104,28 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	SDL_Texture *tex[TEXTURE_COUNT];
-	tex[SIMULATION_TEXTURE] = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, SIMULATION_WIDTH, SIMULATION_HEIGHT);
-	if(!tex[SIMULATION_TEXTURE])
-	{
-		SDL_Cleanup("texture creation", win, ren, tex);
-		return EXIT_FAILURE;
-	}
-
 	TTF_Init();
 	TTF_Font *font = TTF_OpenFont(FONT_FILE_PATH.c_str(), 16);
 	if(!font)
 	{
-		SDL_Cleanup("font creation", win, ren, tex);
+		SDL_Cleanup("font creation", win, ren);
 		return EXIT_FAILURE;
 	}
 
-	Simulation sim(SIMULATION_WIDTH, SIMULATION_HEIGHT, tex[SIMULATION_TEXTURE]);
+	Simulation sim(SIMULATION_WIDTH, SIMULATION_HEIGHT, PIXEL_FORMAT);
 
-	//Set up the UI spacing, buttons, and textures
-	SDL_Rect texRect[TEXTURE_COUNT];
-	texRect[SIMULATION_TEXTURE] = {0, 0, SIMULATION_WIDTH, SIMULATION_HEIGHT};
-	texRect[INFO_UI_TEXTURE] = {SIMULATION_WIDTH + UI_HORIZONTAL_MARGIN, UI_VERTICAL_MARGIN[INFO_UI_TEXTURE], 0, 0};
-	texRect[TOOLS_UI_TEXTURE] = {SIMULATION_WIDTH + UI_HORIZONTAL_MARGIN, UI_VERTICAL_MARGIN[TOOLS_UI_TEXTURE], 0, 0};
-	texRect[MATERIALS_UI_TEXTURE] = {SIMULATION_WIDTH + UI_HORIZONTAL_MARGIN, UI_VERTICAL_MARGIN[MATERIALS_UI_TEXTURE], 0, 0};
-
-	SDL_Surface *surf = TTF_RenderText_Solid(font, " Pause    Erase    Reset", TEXT_COLOR);
-	tex[TOOLS_UI_TEXTURE] = SDL_CreateTextureFromSurface(ren, surf);
-	SDL_FreeSurface(surf);
-	surf = TTF_RenderText_Blended_Wrapped(font, sim.getFormattedNames().c_str(), TEXT_COLOR, SCREEN_WIDTH - texRect[MATERIALS_UI_TEXTURE].x - UI_HORIZONTAL_MARGIN);
-	tex[MATERIALS_UI_TEXTURE] = SDL_CreateTextureFromSurface(ren, surf);
-	SDL_FreeSurface(surf);
-	if(!tex[TOOLS_UI_TEXTURE] || !tex[MATERIALS_UI_TEXTURE])
+	Texture *tex[static_cast<int>(TextureID::TOTAL_TEXTURES)];
+	bool success = true;
+	tex[static_cast<int>(TextureID::SIMULATION_TEXTURE)] = new Texture(ren, success, SIMULATION_RECT);
+	tex[static_cast<int>(TextureID::INFO_UI_TEXTURE)] = new Texture(ren, SIMULATION_WIDTH + UI_HORIZONTAL_MARGIN, UI_VERTICAL_MARGIN[static_cast<int>(TextureID::INFO_UI_TEXTURE)], font);
+	SDL_Rect rect = {SIMULATION_WIDTH + UI_HORIZONTAL_MARGIN, UI_VERTICAL_MARGIN[static_cast<int>(TextureID::TOOLS_UI_TEXTURE)], SCREEN_WIDTH - SIMULATION_WIDTH - UI_HORIZONTAL_MARGIN * 2, 0};
+	tex[static_cast<int>(TextureID::TOOLS_UI_TEXTURE)] = new Texture(ren, success, rect, font, "Pause Erase Reset ");
+	rect.y = UI_VERTICAL_MARGIN[static_cast<int>(TextureID::MATERIALS_UI_TEXTURE)];
+	tex[static_cast<int>(TextureID::MATERIALS_UI_TEXTURE)] = new Texture(ren, success, rect, font, sim.getMaterialString());
+	if(!success)
 	{
-		SDL_Cleanup("texture creation", win, ren, tex, font);
+		SDL_Cleanup("texture creation", win, ren, font, tex);
 		return EXIT_FAILURE;
-	}
-	SDL_QueryTexture(tex[TOOLS_UI_TEXTURE], nullptr, nullptr, &texRect[TOOLS_UI_TEXTURE].w, &texRect[TOOLS_UI_TEXTURE].h);
-	SDL_QueryTexture(tex[MATERIALS_UI_TEXTURE], nullptr, nullptr, &texRect[MATERIALS_UI_TEXTURE].w, &texRect[MATERIALS_UI_TEXTURE].h);
-	tex[INFO_UI_TEXTURE] = nullptr;
-
-	SDL_Rect buttons[BUTTON_COUNT];
-	Uint32 buttonHSpace = SCREEN_WIDTH - SIMULATION_WIDTH - UI_HORIZONTAL_MARGIN * 2;
-	Uint32 buttonHMargin = buttonHSpace * BUTTON_MARGIN;
-	Uint32 buttonVSpace = texRect[MATERIALS_UI_TEXTURE].h;
-	Uint32 buttonVMargin = buttonVSpace * BUTTON_MARGIN;
-	Uint32 buttonWidth = (buttonHSpace - buttonHMargin * (BUTTONS_IN_ROW - 1)) / BUTTONS_IN_ROW;
-	Uint32 buttonHeight = (buttonVSpace - buttonVMargin * (BUTTONS_IN_ROW - 1)) / ((BUTTON_COUNT - BUTTONS_IN_ROW) / BUTTONS_IN_ROW);
-	for(int i = 0; i < BUTTON_COUNT; ++i)
-	{
-		buttons[i].x = SIMULATION_WIDTH + UI_HORIZONTAL_MARGIN + (buttonWidth + buttonHMargin) * (i % BUTTONS_IN_ROW);
-		buttons[i].y = i < BUTTONS_IN_ROW ? texRect[TOOLS_UI_TEXTURE].y : texRect[MATERIALS_UI_TEXTURE].y + (buttonHeight + buttonVMargin) * ((i - TOOL_BUTTON_COUNT) / BUTTONS_IN_ROW);
-		buttons[i].w = buttonWidth;
-		buttons[i].h = buttonHeight;
 	}
 	
 	//Main loop
@@ -223,7 +188,7 @@ int main(int argc, char **argv)
 			}
 		}
 
-		if(SDL_PointInRect(&cursor, &texRect[SIMULATION_TEXTURE]))
+		if(SDL_PointInRect(&cursor, &SIMULATION_RECT))
 		{
 			SDL_ShowCursor(SDL_DISABLE);
 			if(lmbHeld) { sim.setCellLine(cursor, lastCursor, drawRadius, material); }
@@ -233,33 +198,27 @@ int main(int argc, char **argv)
 			SDL_ShowCursor(SDL_ENABLE);
 			if(lmbPressed)
 			{
-				for(int i = 0; i < BUTTON_COUNT; ++i)
+				Uint8 clicked;
+				if(tex[static_cast<int>(TextureID::TOOLS_UI_TEXTURE)]->isButtonClicked(&cursor, clicked))
 				{
-					if(SDL_PointInRect(&cursor, &buttons[i]))
+					switch(static_cast<ToolButton>(clicked))
 					{
-						if(i < TOOL_BUTTON_COUNT)
-						{
-							switch(i)
-							{
-							case PAUSE_BUTTON:
-								paused = !paused;
-								break;
+					case ToolButton::PAUSE:
+						paused = !paused;
+						break;
 
-							case ERASE_BUTTON:
-								material = Simulation::Material::EMPTY;
-								break;
+					case ToolButton::ERASE:
+						material = Simulation::Material::EMPTY;
+						break;
 
-							case RESET_BUTTON:
-								sim.reset();
-								break;
-							}
-						}
-						else
-						{
-							material = static_cast<Simulation::Material>(i - TOOL_BUTTON_COUNT + 1);
-						}
+					case ToolButton::RESET:
+						sim.reset();
 						break;
 					}
+				}
+				else if(tex[static_cast<int>(TextureID::MATERIALS_UI_TEXTURE)]->isButtonClicked(&cursor, clicked))
+				{
+					material = static_cast<Simulation::Material>(clicked + 1);
 				}
 			}
 		}
@@ -267,33 +226,19 @@ int main(int argc, char **argv)
 		if(!paused) { sim.update(); }
 
 		//Draw to the screen
-		SDL_UpdateTexture(tex[SIMULATION_TEXTURE], nullptr, sim.getDrawBuffer(), SIMULATION_WIDTH * sizeof(Uint32));
-		
 		Graphics::setRenderColor(ren, &UI_PANEL_COLOR);
 		SDL_RenderClear(ren);
 
 		if(SDL_GetTicks() % PERFORMANCE_POLL_RATE == 0 || drawRadChanged)
 		{
-			std::string text;
-			text += std::to_string(std::min(1000 / std::max<Uint32>(lastRenderTime, 1), 1000 / TICKS_PER_FRAME));
-			text += "fps       pen size: ";
-			text += std::to_string(drawRadius * 2).c_str();
-			SDL_Surface *surf = TTF_RenderText_Solid(font, text.c_str(), TEXT_COLOR);
-			SDL_Texture *tempTex = SDL_CreateTextureFromSurface(ren, surf);
-			if(tempTex)
-			{
-				if(tex[INFO_UI_TEXTURE]) { SDL_DestroyTexture(tex[INFO_UI_TEXTURE]); }
-				tex[INFO_UI_TEXTURE] = tempTex;
-				SDL_QueryTexture(tex[INFO_UI_TEXTURE], nullptr, nullptr, &texRect[INFO_UI_TEXTURE].w, &texRect[INFO_UI_TEXTURE].h);
-			}
-			SDL_FreeSurface(surf);
+			std::string text = std::to_string(std::min(1000 / std::max<Uint32>(lastRenderTime, 1), 1000 / TICKS_PER_FRAME)) + "fps       pen size: " + std::to_string(drawRadius * 2);
+			tex[static_cast<int>(TextureID::INFO_UI_TEXTURE)]->changeText(text);
 		}
-		for(int i = 0; i < TEXTURE_COUNT; ++i) { if(tex[i]) { SDL_RenderCopy(ren, tex[i], nullptr, &texRect[i]); } }
+		tex[static_cast<int>(TextureID::SIMULATION_TEXTURE)]->changeTexture(sim.getDrawBuffer(), SIMULATION_WIDTH);
+		for(int i = 0; i < static_cast<int>(TextureID::TOTAL_TEXTURES); ++i) { tex[i]->renderTexture(); }
 
-		Graphics::setRenderColor(ren, &UI_SELECT_COLOR);
-		
-		SDL_RenderDrawRects(ren, buttons, BUTTON_COUNT);
-		Graphics::drawCircle(ren, &cursor, &texRect[SIMULATION_TEXTURE], drawRadius, &CURSOR_COLOR);
+		Graphics::setRenderColor(ren, &CURSOR_COLOR);
+		Graphics::drawCircle(ren, &cursor, &SIMULATION_RECT, drawRadius);
 
 		SDL_RenderPresent(ren);
 
@@ -308,9 +253,13 @@ int main(int argc, char **argv)
 		lastRenderTime = renderTime;
 		lastTick = SDL_GetTicks();
 
-		if(SDL_GetError() != "") { std::cout << SDL_GetError() << std::endl; } //DEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUGDEBUG
+		if(SDL_GetError() != "") 
+		{ 
+			SDL_Cleanup("runtime", win, ren, font, tex);
+			return EXIT_FAILURE;
+		}
 	}
 
-	SDL_Cleanup(std::string(), win, ren, tex, font);
+	SDL_Cleanup(std::string(), win, ren, font, tex);
 	return EXIT_SUCCESS;
 }
