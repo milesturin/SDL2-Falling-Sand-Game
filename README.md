@@ -1,8 +1,9 @@
 # SDL2-Cellular-Automata
  
-A [Falling Sand](https://en.wikipedia.org/wiki/Falling-sand_game) game written in C++ using SDL2. It can simulate millions of pixels at once without experiencing any performance bottlenecks, and supports physical and alchemical reactions between elements. It is designed such that new elements can be easily added.
+A [Falling Sand](https://en.wikipedia.org/wiki/Falling-sand_game) game written in C++ and utilizing SDL2. It can simulate millions of pixels at once with a steady framerate, and supports physical and alchemical reactions between materials. Materials are defined modularly such that they can be easily added and removed.
 
 ![General Functionality Demo](/general_demo.gif)
+(click to expand)
 
 ![Density and Texture Demo](/density_demo.gif)
 
@@ -16,3 +17,4 @@ You can find the source code [here](https://github.com/milesturin/SDL2-Falling-S
 * Texture.hpp
 * Texture.cpp
 * Main.cpp
+* Materials.json
