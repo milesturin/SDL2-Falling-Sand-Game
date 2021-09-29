@@ -15,7 +15,7 @@ TODO:
 rename solution and repo
 build boost bcp, look into property config, fix boost config
 make fire work down
-remove iostrema from everywhere
+remove iostream from everywhere
 rename window
 remove debug
 switch from bool flags to temperature
@@ -253,7 +253,7 @@ int main(int argc, char **argv)
 		lastRenderTime = renderTime;
 		lastTick = SDL_GetTicks();
 
-		if(SDL_GetError() != "") 
+		if(strlen(SDL_GetError()) > 0)
 		{ 
 			SDL_Cleanup("runtime", win, ren, font, tex);
 			return EXIT_FAILURE;
